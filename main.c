@@ -15,10 +15,29 @@ static struct pci_device_id ids[] = {
     {0, }
 };
 
+static void *base_addr;
+
+static int fops_open(inode *node, file *f) {
+    scull_dev *dev;
+    // some private data
+    return 0;
+}
+
+static int fops_release(inode *node, file *f) {
+    return 0;
+}
+
+static struct file_operations fops = {
+    .owner = THIS_MODULE,
+    .unlocked_ioctl = pci_ioctl,
+    .open = fops_open,
+    .release = fops_release
+};
+
 static int probe(struct pci_dev *dev, const struct pci_device_id *id) {
     pci_enable_device(dev); // init dev
     
-    void *addr = ioremap_nocache(99, 4); // some memory
+    base_addr = ioremap_nocache(99, 4); // some memory
     
     register_chrdev(0, "pci_subdev1", fops);
 
@@ -26,14 +45,9 @@ static int probe(struct pci_dev *dev, const struct pci_device_id *id) {
 }
 
 static void remove(struct pci_dev *dev) {
+    iounmap(base_addr);
+
     unregister_chrdev(0, "pci_subdev1");
-}
-
-static int *fops_open(inode *node, file *f) {
-    scull_dev *dev;
-}
-
-static int *fops_release(inode *node, file *f) {
 
 }
 
@@ -42,15 +56,15 @@ static long pci_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
     switch (cmd)
     {
         case RW_GET_VARIABLES:
-            return ioread8(addr);
+            return ioread32(base_addr+arg);
             break;
         case RW_CLR_VARIABLES:
-            addr = ioremap_nocache(0, 4);
+            iounmap(base_addr);
             break;
         case RW_SET_VARIABLES:
-            // if (sizeof(mocha) <= sizeof(*addr)) {
-            //     iowrite8(mocha, addr);
-            // }
+            // if (sizeof(arg.value) <= sizeof(base_addr+arg.registr))
+            // or anything like this
+            iowrite32(arg.value, base_addr+arg.registr);
             break;
         default:
             return -EINVAL;
@@ -64,13 +78,6 @@ static struct pci_driver pci_driver = {
     .id_table = ids,
     .probe = probe,
     .remove = remove
-};
-
-static struct file_operations fops = {
-    .owner = THIS_MODULE,
-    .unlocked_ioctl = pci_ioctl,
-    .open = fops_open,
-    .release = fops_release
 };
 
 static int initialization_function(void) {

@@ -64,7 +64,9 @@ static long pci_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
         case RW_SET_VARIABLES:
             // if (sizeof(arg.value) <= sizeof(base_addr+arg.registr))
             // or anything like this
-            iowrite32(arg.value, base_addr+arg.registr);
+            if (fops.owner == THIS_MODULE) {
+                iowrite32(arg.value, base_addr+arg.registr);
+            }
             break;
         default:
             return -EINVAL;
